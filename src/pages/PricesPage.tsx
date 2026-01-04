@@ -5,7 +5,7 @@ import { storeApi } from '../api/storeApi';
 import { storeItemApi } from '../api/storeItemApi';
 import { priceApi } from '../api/priceApi';
 import { categoryApi } from '../api/categoryApi';
-import { Search, ChevronDown, Package, Save, X } from 'lucide-react';
+import { Search, ChevronDown, Package, Save, X, AlertTriangle } from 'lucide-react';
 import type { StoreItem } from '../types';
 
 interface PendingChange {
@@ -28,6 +28,7 @@ export function PricesPage() {
     const [pendingNewItems, setPendingNewItems] = useState<PendingNewItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
+    const [validationError, setValidationError] = useState<string | null>(null);
 
     const { data: items = [], isLoading: itemsLoading } = useQuery({
         queryKey: ['items'],
@@ -115,7 +116,30 @@ export function PricesPage() {
         });
     };
 
+    const hasInvalidDiscountPrices = (): boolean => {
+        // Check pending changes for existing items
+        for (const change of pendingChanges.values()) {
+            if (change.originalPrice !== null && change.discountPrice > change.originalPrice) {
+                return true;
+            }
+        }
+        // Check pending new items
+        for (const newItem of pendingNewItems) {
+            if (newItem.originalPrice !== null && newItem.price > newItem.originalPrice) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     const saveAllChanges = async () => {
+        // Validate before saving
+        if (hasInvalidDiscountPrices()) {
+            setValidationError('Cannot save: Discount price cannot be greater than the original price. Please fix the highlighted items.');
+            return;
+        }
+        setValidationError(null);
+
         // Save price updates
         for (const change of pendingChanges.values()) {
             await updateMutation.mutateAsync({
@@ -143,6 +167,7 @@ export function PricesPage() {
     const discardChanges = () => {
         setPendingChanges(new Map());
         setPendingNewItems([]);
+        setValidationError(null);
     };
 
     const hasChanges = pendingChanges.size > 0 || pendingNewItems.length > 0;
@@ -164,6 +189,20 @@ export function PricesPage() {
                     Update and track prices across all stores.
                 </p>
             </div>
+
+            {/* Validation Error Banner */}
+            {validationError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                    <AlertTriangle size={20} className="text-red-500 flex-shrink-0" />
+                    <span className="text-red-700 text-sm flex-1">{validationError}</span>
+                    <button
+                        onClick={() => setValidationError(null)}
+                        className="text-red-500 hover:text-red-700 transition-colors"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4">
