@@ -1,11 +1,15 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://aleah-nonoperational-cordia.ngrok-free.dev/smart-basket/api/v1';
+// API URL must be provided via VITE_API_URL environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+if (!API_BASE_URL) {
+    console.error('VITE_API_URL environment variable is not set. API calls will fail.');
+}
 
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
     headers: {
-        "ngrok-skip-browser-warning": "any-value",
         'Content-Type': 'application/json',
     },
 });
