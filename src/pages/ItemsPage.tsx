@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { referenceItemApi } from '../api/referenceItemApi';
 import { storeApi } from '../api/storeApi';
 import { categoryApi } from '../api/categoryApi';
-import { Plus, Pencil, Trash2, Package, Search, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Search, ImageIcon, Link } from 'lucide-react';
 import type { ReferenceItem, CreateReferenceItemRequest, Store } from '../types';
 
 export function ItemsPage() {
@@ -14,6 +14,7 @@ export function ItemsPage() {
     const [filterCategory, setFilterCategory] = useState('');
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+    const [imageUrlInput, setImageUrlInput] = useState('');
     const [formData, setFormData] = useState<CreateReferenceItemRequest>({
         name: '',
         nameAr: '',
@@ -81,11 +82,11 @@ export function ItemsPage() {
     const renderCategoryIcon = (icon: string | null | undefined, size: string = 'w-5 h-5') => {
         if (!icon) return null;
         // Check if it's an image URL/data (long string, or contains image indicators)
-        const isImage = icon.startsWith('data:') || 
-                        icon.startsWith('http') || 
-                        icon.startsWith('/') ||
-                        icon.includes('base64') ||
-                        icon.length > 20; // Emojis are typically 1-4 chars, Base64 is very long
+        const isImage = icon.startsWith('data:') ||
+            icon.startsWith('http') ||
+            icon.startsWith('/') ||
+            icon.includes('base64') ||
+            icon.length > 20; // Emojis are typically 1-4 chars, Base64 is very long
         if (isImage) {
             return <img src={icon} alt="" className={`${size} rounded object-cover flex-shrink-0`} />;
         }
@@ -463,6 +464,32 @@ export function ItemsPage() {
                                 {/* Images */}
                                 <div>
                                     <label className="form-label">Images</label>
+                                    {/* URL Input */}
+                                    <div className="flex gap-2 mb-3">
+                                        <input
+                                            type="url"
+                                            className="form-input flex-1"
+                                            value={imageUrlInput}
+                                            onChange={(e) => setImageUrlInput(e.target.value)}
+                                            placeholder="https://s3.amazonaws.com/bucket/image.png"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (imageUrlInput.trim()) {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        images: [...(prev.images || []), imageUrlInput.trim()],
+                                                    }));
+                                                    setImageUrlInput('');
+                                                }
+                                            }}
+                                            className="btn btn-secondary flex items-center gap-1"
+                                        >
+                                            <Link size={16} />
+                                            Add URL
+                                        </button>
+                                    </div>
                                     {/* Image Thumbnails */}
                                     <div className="flex flex-wrap gap-2 mb-3">
                                         {(formData.images || []).map((url, i) => (

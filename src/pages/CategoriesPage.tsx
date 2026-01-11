@@ -304,6 +304,27 @@ export function CategoriesPage() {
                                 </div>
                                 <div>
                                     <label className="form-label">Icon</label>
+                                    {/* URL Input */}
+                                    <div className="flex gap-2 mb-3">
+                                        <input
+                                            type="url"
+                                            className="form-input flex-1"
+                                            value={formData.icon?.startsWith('data:') ? '' : (formData.icon || '')}
+                                            onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                                            placeholder="https://s3.amazonaws.com/bucket/icon.png"
+                                        />
+                                        {formData.icon && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, icon: '' })}
+                                                className="btn btn-danger btn-sm"
+                                                title="Clear icon"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
+                                    {/* Emoji & File Upload */}
                                     <div className="flex gap-3 items-center">
                                         <div className="relative flex-1" ref={emojiPickerRef}>
                                             <div className="flex gap-2">
@@ -325,16 +346,6 @@ export function CategoriesPage() {
                                                         onChange={handleIconFileSelect}
                                                     />
                                                 </label>
-                                                {formData.icon && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setFormData({ ...formData, icon: '' })}
-                                                        className="btn btn-danger btn-sm"
-                                                        title="Clear icon"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                )}
                                             </div>
                                             {showEmojiPicker && (
                                                 <div className="absolute z-50 mt-2 left-0">
