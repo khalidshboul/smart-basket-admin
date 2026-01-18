@@ -27,3 +27,11 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+dist-*
+
+# Temporary documentation files
+AWS_*.md
+DEPLOYMENT_*.md
+DATABASE_*.md
+ECS_*.md
+PRE_*.md
