@@ -258,6 +258,27 @@ export function StoresPage() {
                                 </div>
                                 <div>
                                     <label className="form-label">Logo</label>
+                                    {/* URL Input */}
+                                    <div className="flex gap-2 mb-3">
+                                        <input
+                                            type="url"
+                                            className="form-input flex-1"
+                                            value={formData.logoUrl?.startsWith('data:') ? '' : (formData.logoUrl || '')}
+                                            onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
+                                            placeholder="https://s3.amazonaws.com/bucket/logo.png"
+                                        />
+                                        {formData.logoUrl && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, logoUrl: '' })}
+                                                className="btn btn-danger btn-sm"
+                                                title="Clear logo"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
+                                    {/* Browse Button */}
                                     <label className="btn btn-secondary cursor-pointer inline-flex items-center gap-2 mb-2">
                                         <ImageIcon size={18} />
                                         Browse Image
