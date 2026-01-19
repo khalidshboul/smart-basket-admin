@@ -9,6 +9,12 @@ export interface Category {
     descriptionAr: string | null;
     displayOrder: number;
     active: boolean;
+    // Hierarchy fields
+    parentCategoryId: string | null;
+    parentCategoryName: string | null;
+    subcategories?: Category[];
+    subcategoryCount: number;
+    subcategoryIds: string[]; // NEW: Direct list of child IDs
 }
 
 export interface CreateCategoryRequest {
@@ -19,6 +25,7 @@ export interface CreateCategoryRequest {
     descriptionAr?: string;
     displayOrder?: number;
     active?: boolean;
+    parentCategoryId?: string | null;  // Optional: for creating subcategories
 }
 
 // ============ Reference Item Types ============
@@ -29,6 +36,7 @@ export interface ReferenceItem {
     nameAr: string | null;
     categoryId: string;
     category: string; // Denormalized category name
+    categoryBreadcrumb: string; // Full path e.g., "Dairy > Milk"
     description: string;
     descriptionAr: string | null;
     images: string[];

@@ -14,6 +14,34 @@ export const categoryApi = {
         return response.data;
     },
 
+    /**
+     * Get only top-level categories (no parent)
+     */
+    getTopLevel: async (activeOnly = false): Promise<Category[]> => {
+        const response = await apiClient.get<Category[]>(`${BASE_PATH}/top-level`, {
+            params: { activeOnly }
+        });
+        return response.data;
+    },
+
+    /**
+     * Get subcategories of a parent category
+     */
+    getSubcategories: async (parentId: string, activeOnly = false): Promise<Category[]> => {
+        const response = await apiClient.get<Category[]>(`${BASE_PATH}/${parentId}/subcategories`, {
+            params: { activeOnly }
+        });
+        return response.data;
+    },
+
+    /**
+     * Get category with its subcategories populated
+     */
+    getWithSubcategories: async (id: string): Promise<Category> => {
+        const response = await apiClient.get<Category>(`${BASE_PATH}/${id}/with-subcategories`);
+        return response.data;
+    },
+
     getById: async (id: string): Promise<Category> => {
         const response = await apiClient.get<Category>(`${BASE_PATH}/${id}`);
         return response.data;

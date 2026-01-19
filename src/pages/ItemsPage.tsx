@@ -71,11 +71,31 @@ export function ItemsPage() {
         },
     });
 
-    // Filter items
+    // Filter items - include subcategory items when filtering by parent category
     const filteredItems = items.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = !filterCategory || item.categoryId === filterCategory;
-        return matchesSearch && matchesCategory;
+
+        // If no category filter, show all
+        if (!filterCategory) {
+            return matchesSearch;
+        }
+
+        // Check if the filter is a parent category
+        const selectedCategory = categories.find(c => c.id === filterCategory);
+        const isParentCategory = selectedCategory && !selectedCategory.parentCategoryId;
+
+        if (isParentCategory) {
+            // Include items from this parent AND all its subcategories
+            const subcategoryIds = categories
+                .filter(c => c.parentCategoryId === filterCategory)
+                .map(c => c.id);
+            const matchesCategory = item.categoryId === filterCategory || subcategoryIds.includes(item.categoryId);
+            return matchesSearch && matchesCategory;
+        } else {
+            // Exact match for subcategory
+            const matchesCategory = item.categoryId === filterCategory;
+            return matchesSearch && matchesCategory;
+        }
     });
 
     // Helper to render category icon
@@ -96,6 +116,41 @@ export function ItemsPage() {
     // Get selected category for display
     const selectedFilterCategory = categories.find(c => c.id === filterCategory);
     const selectedFormCategory = categories.find(c => c.id === formData.categoryId);
+
+    // Sort categories: parents first, then their subcategories immediately after
+    const sortedCategories = [...categories].sort((a, b) => {
+        // Both are top-level: sort by displayOrder
+        if (!a.parentCategoryId && !b.parentCategoryId) {
+            return a.displayOrder - b.displayOrder;
+        }
+        // Both have same parent: sort by displayOrder
+        if (a.parentCategoryId === b.parentCategoryId) {
+            return a.displayOrder - b.displayOrder;
+        }
+        // a is parent, b is its child: parent comes first
+        if (b.parentCategoryId === a.id) {
+            return -1;
+        }
+        // b is parent, a is its child: parent comes first
+        if (a.parentCategoryId === b.id) {
+            return 1;
+        }
+        // a is child of some parent, b is top-level
+        if (a.parentCategoryId && !b.parentCategoryId) {
+            const aParent = categories.find(c => c.id === a.parentCategoryId);
+            // Place child after its parent in the overall order
+            return (aParent?.displayOrder ?? 0) - b.displayOrder || 1;
+        }
+        // b is child of some parent, a is top-level
+        if (!a.parentCategoryId && b.parentCategoryId) {
+            const bParent = categories.find(c => c.id === b.parentCategoryId);
+            return a.displayOrder - (bParent?.displayOrder ?? 0) || -1;
+        }
+        // Both are children of different parents: sort by parent displayOrder
+        const aParent = categories.find(c => c.id === a.parentCategoryId);
+        const bParent = categories.find(c => c.id === b.parentCategoryId);
+        return (aParent?.displayOrder ?? 0) - (bParent?.displayOrder ?? 0);
+    });
 
     const openCreateModal = () => {
         setEditingItem(null);
@@ -242,23 +297,40 @@ export function ItemsPage() {
                         )}
                     </button>
                     {showFilterDropdown && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                             <div
                                 onClick={() => { setFilterCategory(''); setShowFilterDropdown(false); }}
-                                className="flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer text-slate-500"
+                                className="flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer text-slate-500 border-b border-slate-100"
                             >
                                 All Categories
                             </div>
-                            {categories.map(cat => (
-                                <div
-                                    key={cat.id}
-                                    onClick={() => { setFilterCategory(cat.id); setShowFilterDropdown(false); }}
-                                    className={`flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer ${filterCategory === cat.id ? 'bg-primary-50' : ''}`}
-                                >
-                                    {renderCategoryIcon(cat.icon)}
-                                    <span className="truncate">{cat.name}</span>
-                                </div>
-                            ))}
+                            {sortedCategories.map((cat, index) => {
+                                const isParent = !cat.parentCategoryId;
+                                const showDivider = isParent && index > 0;
+
+                                return (
+                                    <div key={cat.id}>
+                                        {showDivider && <div className="border-t border-slate-200 my-1" />}
+                                        <div
+                                            onClick={() => { setFilterCategory(cat.id); setShowFilterDropdown(false); }}
+                                            className={`flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer 
+                                                ${filterCategory === cat.id ? 'bg-primary-50' : ''} 
+                                                ${isParent ? 'bg-slate-50' : 'pl-8'}`}
+                                        >
+                                            {!isParent && <span className="text-slate-300 text-sm">└─</span>}
+                                            {renderCategoryIcon(cat.icon, isParent ? 'w-6 h-6' : 'w-5 h-5')}
+                                            <span className={`truncate ${isParent ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
+                                                {cat.name}
+                                            </span>
+                                            {isParent && cat.subcategoryCount > 0 && (
+                                                <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full ml-auto">
+                                                    {cat.subcategoryCount}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -422,17 +494,42 @@ export function ItemsPage() {
                                             )}
                                         </button>
                                         {showCategoryDropdown && (
-                                            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                                {categories.map(cat => (
-                                                    <div
-                                                        key={cat.id}
-                                                        onClick={() => { setFormData({ ...formData, categoryId: cat.id }); setShowCategoryDropdown(false); }}
-                                                        className={`flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer ${formData.categoryId === cat.id ? 'bg-primary-50' : ''}`}
-                                                    >
-                                                        {renderCategoryIcon(cat.icon)}
-                                                        <span className="truncate">{cat.name}</span>
-                                                    </div>
-                                                ))}
+                                            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                                                {/* Recursive category rendering */}
+                                                {(() => {
+                                                    const renderCategoryOptions = (parentId: string | null, level: number): React.ReactNode[] => {
+                                                        return categories
+                                                            .filter(c => c.parentCategoryId === parentId)
+                                                            .sort((a, b) => a.displayOrder - b.displayOrder)
+                                                            .flatMap(cat => {
+                                                                const children = categories.filter(c => c.parentCategoryId === cat.id);
+                                                                const hasChildren = children.length > 0;
+                                                                const isTopLevel = level === 0;
+
+                                                                return [
+                                                                    <div
+                                                                        key={cat.id}
+                                                                        onClick={() => { setFormData({ ...formData, categoryId: cat.id }); setShowCategoryDropdown(false); }}
+                                                                        className={`flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer 
+                                                                            ${formData.categoryId === cat.id ? 'bg-primary-50' : ''} 
+                                                                            ${isTopLevel ? 'bg-slate-50' : ''}`}
+                                                                        style={{ paddingLeft: `${8 + level * 16}px` }}
+                                                                    >
+                                                                        {level > 0 && <span className="text-slate-300 text-sm">└</span>}
+                                                                        {renderCategoryIcon(cat.icon, isTopLevel ? 'w-6 h-6' : 'w-5 h-5')}
+                                                                        <span className={`truncate ${isTopLevel ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
+                                                                            {cat.name}
+                                                                        </span>
+                                                                        {hasChildren && (
+                                                                            <span className="text-xs text-slate-400">({children.length})</span>
+                                                                        )}
+                                                                    </div>,
+                                                                    ...renderCategoryOptions(cat.id, level + 1)
+                                                                ];
+                                                            });
+                                                    };
+                                                    return renderCategoryOptions(null, 0);
+                                                })()}
                                             </div>
                                         )}
                                     </div>
