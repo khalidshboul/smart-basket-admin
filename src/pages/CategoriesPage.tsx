@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoryApi } from '../api/categoryApi';
-import { Plus, Pencil, Trash2, Folder, Smile, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Folder, Smile, ImageIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import type { EmojiClickData } from 'emoji-picker-react';
 import type { Category, CreateCategoryRequest } from '../types';
@@ -23,6 +23,8 @@ export function CategoriesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showParentDropdown, setShowParentDropdown] = useState(false);
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState<CreateCategoryRequest>({
         name: '',
@@ -32,6 +34,7 @@ export function CategoriesPage() {
         descriptionAr: '',
         displayOrder: 0,
         active: true,
+        parentCategoryId: null,
     });
 
     // Close emoji picker when clicking outside
@@ -87,8 +90,10 @@ export function CategoriesPage() {
             descriptionAr: '',
             displayOrder: categories.length,
             active: true,
+            parentCategoryId: null,
         });
         setShowEmojiPicker(false);
+        setShowParentDropdown(false);
         setIsModalOpen(true);
     };
 
@@ -102,8 +107,10 @@ export function CategoriesPage() {
             descriptionAr: category.descriptionAr || '',
             displayOrder: category.displayOrder,
             active: category.active,
+            parentCategoryId: category.parentCategoryId || null,
         });
         setShowEmojiPicker(false);
+        setShowParentDropdown(false);
         setIsModalOpen(true);
     };
 
@@ -111,7 +118,14 @@ export function CategoriesPage() {
         setIsModalOpen(false);
         setEditingCategory(null);
         setShowEmojiPicker(false);
+        setShowParentDropdown(false);
     };
+
+
+    // Get selected parent category for display
+    const selectedParentCategory = formData.parentCategoryId
+        ? categories.find(c => c.id === formData.parentCategoryId)
+        : null;
 
     const handleEmojiClick = (emojiData: EmojiClickData) => {
         setFormData({ ...formData, icon: emojiData.emoji });
@@ -180,73 +194,238 @@ export function CategoriesPage() {
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {categories.map((category, index) => (
-                        <div
-                            key={category.id}
-                            className="card flex items-center justify-between group hover:shadow-md transition-all duration-200"
-                        >
-                            <div className="flex items-center gap-4">
-                                {/* Icon */}
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${iconColors[index % iconColors.length]} shadow-sm group-hover:scale-110 transition-transform duration-200 overflow-hidden`}>
-                                    {category.icon ? (
-                                        category.icon.startsWith('data:') || category.icon.startsWith('http') ? (
-                                            <img src={category.icon} alt={category.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            category.icon
-                                        )
-                                    ) : (
-                                        <Folder size={24} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    {/* Parent Category Cards with Tree Structure */}
+                    {categories.filter(c => !c.parentCategoryId).sort((a, b) => a.displayOrder - b.displayOrder).map((parent, parentIndex) => {
+                        const isExpanded = expandedCategories.has(parent.id);
+
+                        // Helper to get all children of a category
+                        const getChildren = (parentId: string) =>
+                            categories.filter(c => c.parentCategoryId === parentId).sort((a, b) => a.displayOrder - b.displayOrder);
+
+                        const directChildren = getChildren(parent.id);
+                        const hasChildren = directChildren.length > 0;
+
+                        // Toggle expand/collapse
+                        const toggleExpand = (id: string) => {
+                            setExpandedCategories(prev => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(id)) {
+                                    newSet.delete(id);
+                                } else {
+                                    newSet.add(id);
+                                }
+                                return newSet;
+                            });
+                        };
+
+                        // Recursive Tree Node Component
+                        const renderTreeNode = (category: Category, level: number, colorIndex: number) => {
+                            const children = getChildren(category.id);
+                            const hasChildNodes = children.length > 0;
+                            const isNodeExpanded = expandedCategories.has(category.id);
+                            const indent = level * 24;
+
+                            return (
+                                <div key={category.id}>
+                                    {/* Tree Node Row */}
+                                    <div
+                                        className="flex items-center justify-between py-2 px-3 hover:bg-slate-50 rounded-lg group transition-all"
+                                        style={{ marginLeft: `${indent}px` }}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {/* Expand/Collapse or Connector */}
+                                            {hasChildNodes ? (
+                                                <button
+                                                    onClick={() => toggleExpand(category.id)}
+                                                    className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-primary-600 transition-colors"
+                                                >
+                                                    {isNodeExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                                </button>
+                                            ) : (
+                                                <span className="w-5 h-5 flex items-center justify-center text-slate-300">
+                                                    └
+                                                </span>
+                                            )}
+
+                                            {/* Icon */}
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${iconColors[colorIndex % iconColors.length]} overflow-hidden`}>
+                                                {category.icon ? (
+                                                    category.icon.startsWith('data:') || category.icon.startsWith('http') ? (
+                                                        <img src={category.icon} alt={category.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        category.icon
+                                                    )
+                                                ) : (
+                                                    <Folder size={14} />
+                                                )}
+                                            </div>
+
+                                            {/* Name & Badge */}
+                                            <span className="font-medium text-slate-700">{category.name}</span>
+                                            {hasChildNodes && (
+                                                <span className="text-xs text-slate-400">({children.length})</span>
+                                            )}
+                                            {!category.active && (
+                                                <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">inactive</span>
+                                            )}
+                                        </div>
+
+                                        {/* Actions - visible on hover */}
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => {
+                                                    const action = category.active ? 'deactivate' : 'activate';
+                                                    if (confirm(`Are you sure you want to ${action} "${category.name}"?`)) {
+                                                        toggleMutation.mutate(category.id);
+                                                    }
+                                                }}
+                                                className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${category.active
+                                                    ? 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                    : 'bg-green-100 text-green-600 hover:bg-green-200'
+                                                    }`}
+                                                title={category.active ? 'Deactivate' : 'Activate'}
+                                            >
+                                                {category.active ? 'Deactivate' : 'Activate'}
+                                            </button>
+                                            <button
+                                                onClick={() => openEditModal(category)}
+                                                className="p-1 text-slate-400 hover:text-primary-600 rounded transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Pencil size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(category.id)}
+                                                className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Children */}
+                                    {isNodeExpanded && children.map((child, idx) =>
+                                        renderTreeNode(child, level + 1, colorIndex + idx + 1)
                                     )}
                                 </div>
-                                {/* Info */}
-                                <div>
-                                    <h3 className="font-bold text-lg text-slate-800">{category.name}</h3>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-                                            {category.description || 'No description'}
-                                        </span>
-                                        {category.active ? (
-                                            <span className="badge badge-success">Active</span>
-                                        ) : (
-                                            <span className="badge badge-danger">Inactive</span>
+                            );
+                        };
+
+                        return (
+                            <div key={parent.id} className="card p-0 overflow-hidden">
+                                {/* Card Header - Parent Category (clickable to expand/collapse) */}
+                                <div
+                                    className={`flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white ${hasChildren ? 'cursor-pointer' : ''}`}
+                                    onClick={() => hasChildren && toggleExpand(parent.id)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        {/* Expand chevron */}
+                                        {hasChildren && (
+                                            <div className="text-slate-400">
+                                                {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                                            </div>
                                         )}
+                                        {/* Icon */}
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${iconColors[parentIndex % iconColors.length]} shadow-sm overflow-hidden`}>
+                                            {parent.icon ? (
+                                                parent.icon.startsWith('data:') || parent.icon.startsWith('http') ? (
+                                                    <img src={parent.icon} alt={parent.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    parent.icon
+                                                )
+                                            ) : (
+                                                <Folder size={24} />
+                                            )}
+                                        </div>
+                                        {/* Info */}
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-bold text-lg text-slate-800">{parent.name}</h3>
+                                                {parent.active ? (
+                                                    <span className="badge badge-success">Active</span>
+                                                ) : (
+                                                    <span className="badge badge-danger">Inactive</span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-400">
+                                                {parent.description || 'No description'}
+                                                {hasChildren && ` • ${directChildren.length} subcategories`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {/* Actions */}
+                                    {/* Actions - stop propagation to prevent expand/collapse */}
+                                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                        <button
+                                            onClick={() => {
+                                                const action = parent.active ? 'deactivate' : 'activate';
+                                                if (confirm(`Are you sure you want to ${action} "${parent.name}"?`)) {
+                                                    toggleMutation.mutate(parent.id);
+                                                }
+                                            }}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${parent.active
+                                                ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                }`}
+                                        >
+                                            {parent.active ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                        <button
+                                            onClick={() => openEditModal(parent)}
+                                            className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                                            title="Edit"
+                                        >
+                                            <Pencil size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(parent.id)}
+                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                            title="Delete"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
                                     </div>
                                 </div>
+
+                                {/* Tree Content */}
+                                {hasChildren && isExpanded && (
+                                    <div className="p-2 pt-0">
+                                        {/* Tree Nodes */}
+                                        {directChildren.map((child, idx) =>
+                                            renderTreeNode(child, 0, parentIndex + idx + 1)
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Footer - Add Subcategory */}
+                                <div className="px-4 py-3">
+                                    <button
+                                        onClick={() => {
+                                            setFormData({
+                                                ...formData,
+                                                parentCategoryId: parent.id,
+                                                name: '',
+                                                nameAr: '',
+                                                icon: '',
+                                                description: '',
+                                                descriptionAr: '',
+                                                displayOrder: directChildren.length,
+                                                active: true,
+                                            });
+                                            setEditingCategory(null);
+                                            setIsModalOpen(true);
+                                        }}
+                                        className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                                    >
+                                        <Plus size={16} />
+                                        Add Subcategory
+                                    </button>
+                                </div>
                             </div>
-                            {/* Actions */}
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => {
-                                        const action = category.active ? 'deactivate' : 'activate';
-                                        if (confirm(`Are you sure you want to ${action} "${category.name}"?`)) {
-                                            toggleMutation.mutate(category.id);
-                                        }
-                                    }}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${category.active
-                                        ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        }`}
-                                >
-                                    {category.active ? 'Deactivate' : 'Activate'}
-                                </button>
-                                <button
-                                    onClick={() => openEditModal(category)}
-                                    className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
-                                    title="Edit"
-                                >
-                                    <Pencil size={18} />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(category.id)}
-                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                    title="Delete"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -302,6 +481,97 @@ export function CategoriesPage() {
                                         placeholder="مثال: منتجات الألبان"
                                     />
                                 </div>
+                                {/* Parent Category Selector */}
+                                <div>
+                                    <label className="form-label">Parent Category (optional)</label>
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowParentDropdown(!showParentDropdown)}
+                                            className="form-input w-full text-left flex items-center justify-between"
+                                        >
+                                            {selectedParentCategory ? (
+                                                <span className="flex items-center gap-2">
+                                                    {selectedParentCategory.icon && (
+                                                        selectedParentCategory.icon.startsWith('data:') || selectedParentCategory.icon.startsWith('http') ? (
+                                                            <img src={selectedParentCategory.icon} alt="" className="w-5 h-5 rounded object-cover" />
+                                                        ) : (
+                                                            <span>{selectedParentCategory.icon}</span>
+                                                        )
+                                                    )}
+                                                    {selectedParentCategory.name}
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400">None (Top-level category)</span>
+                                            )}
+                                            <ChevronRight size={16} className={`text - slate - 400 transition - transform ${showParentDropdown ? 'rotate-90' : ''} `} />
+                                        </button>
+                                        {showParentDropdown && (
+                                            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                                                {/* None option */}
+                                                <div
+                                                    onClick={() => { setFormData({ ...formData, parentCategoryId: null }); setShowParentDropdown(false); }}
+                                                    className={`flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer ${!formData.parentCategoryId ? 'bg-primary-50' : ''}`}
+                                                >
+                                                    <span className="text-slate-500">None (Top-level category)</span>
+                                                </div>
+
+                                                {/* Hierarchical categories */}
+                                                {categories
+                                                    .filter(c => !c.parentCategoryId)
+                                                    .sort((a, b) => a.displayOrder - b.displayOrder)
+                                                    .map(parent => {
+                                                        // Recursive function to render category and its children
+                                                        const renderCategoryOption = (cat: Category, level: number): React.ReactNode[] => {
+                                                            const catChildren = categories
+                                                                .filter(c => c.parentCategoryId === cat.id)
+                                                                .sort((a, b) => a.displayOrder - b.displayOrder);
+                                                            const isEditing = editingCategory?.id === cat.id;
+
+                                                            const elements: React.ReactNode[] = [
+                                                                <div
+                                                                    key={cat.id}
+                                                                    onClick={() => {
+                                                                        if (!isEditing) {
+                                                                            setFormData({ ...formData, parentCategoryId: cat.id });
+                                                                            setShowParentDropdown(false);
+                                                                        }
+                                                                    }}
+                                                                    className={`flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer ${formData.parentCategoryId === cat.id ? 'bg-primary-50' : ''
+                                                                        } ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    style={{ paddingLeft: `${8 + level * 16}px` }}
+                                                                >
+                                                                    {level > 0 && <span className="text-slate-300 text-xs">└</span>}
+                                                                    {cat.icon && (
+                                                                        cat.icon.startsWith('data:') || cat.icon.startsWith('http') ? (
+                                                                            <img src={cat.icon} alt="" className="w-5 h-5 rounded object-cover" />
+                                                                        ) : (
+                                                                            <span>{cat.icon}</span>
+                                                                        )
+                                                                    )}
+                                                                    <span className={`truncate ${level === 0 ? 'font-medium' : ''}`}>{cat.name}</span>
+                                                                    {catChildren.length > 0 && (
+                                                                        <span className="text-xs text-slate-400">({catChildren.length})</span>
+                                                                    )}
+                                                                    {isEditing && <span className="text-xs text-slate-400">(editing)</span>}
+                                                                </div>
+                                                            ];
+
+                                                            // Recursively add children
+                                                            catChildren.forEach(child => {
+                                                                elements.push(...renderCategoryOption(child, level + 1));
+                                                            });
+
+                                                            return elements;
+                                                        };
+
+                                                        return renderCategoryOption(parent, 0);
+                                                    })}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">Leave empty for a top-level category, or select a parent to create a subcategory.</p>
+                                </div>
                                 <div>
                                     <label className="form-label">Icon</label>
                                     {/* URL Input */}
@@ -309,9 +579,10 @@ export function CategoriesPage() {
                                         <input
                                             type="url"
                                             className="form-input flex-1"
-                                            value={formData.icon?.startsWith('data:') ? '' : (formData.icon || '')}
+                                            value={formData.icon?.startsWith('data:') || (formData.icon && !formData.icon.startsWith('http')) ? '' : (formData.icon || '')}
                                             onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                                            placeholder="https://s3.amazonaws.com/bucket/icon.png"
+                                            placeholder={formData.icon && !formData.icon.startsWith('http') ? 'Clear icon to enter URL' : 'https://s3.amazonaws.com/bucket/icon.png'}
+                                            disabled={!!(formData.icon && !formData.icon.startsWith('http'))}
                                         />
                                         {formData.icon && (
                                             <button

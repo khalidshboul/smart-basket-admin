@@ -14,8 +14,10 @@ export const referenceItemApi = {
         return response.data;
     },
 
-    getByCategory: async (category: string): Promise<ReferenceItem[]> => {
-        const response = await apiClient.get<ReferenceItem[]>(`${BASE_PATH}/category/${category}`);
+    getByCategory: async (categoryId: string, includeSubcategories = false): Promise<ReferenceItem[]> => {
+        const response = await apiClient.get<ReferenceItem[]>(`${BASE_PATH}/category/${categoryId}`, {
+            params: { includeSubcategories },
+        });
         return response.data;
     },
 
