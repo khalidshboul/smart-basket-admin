@@ -6,8 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: [
-      'https://aleah-nonoperational-cordia.ngrok-free.dev/smart-basket/api/v1',//aleah-nonoperational-cordia.ngrok-free.dev
+//       'https://aleah-nonoperational-cordia.ngrok-free.dev/smart-basket/api/v1',//aleah-nonoperational-cordia.ngrok-free.dev
       //https://aleah-nonoperational-cordia.ngrok-free.dev/smart-basket/api/v1
+//       'https://dv158bxx2i2r6.cloudfront.net/smart-basket/api/v1',
       'all',
     ],
     hmr: {
