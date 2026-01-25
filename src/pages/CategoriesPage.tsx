@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoryApi } from '../api/categoryApi';
-import { Plus, Pencil, Trash2, Folder, Smile, ImageIcon, ChevronRight, ChevronDown } from 'lucide-react';
+import { bulkUploadApi } from '../api/bulkUploadApi';
+import type { BulkUploadResponse } from '../api/bulkUploadApi';
+import { Plus, Pencil, Trash2, Folder, Smile, ImageIcon, ChevronRight, ChevronDown, Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import type { EmojiClickData } from 'emoji-picker-react';
 import type { Category, CreateCategoryRequest } from '../types';
@@ -26,6 +28,9 @@ export function CategoriesPage() {
     const [showParentDropdown, setShowParentDropdown] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
     const emojiPickerRef = useRef<HTMLDivElement>(null);
+    const [uploadingCategoryId, setUploadingCategoryId] = useState<string | null>(null);
+    const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [formData, setFormData] = useState<CreateCategoryRequest>({
         name: '',
         nameAr: '',
@@ -79,6 +84,46 @@ export function CategoriesPage() {
         mutationFn: categoryApi.toggleStatus,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
     });
+
+    const uploadMutation = useMutation({
+        mutationFn: ({ file, categoryId }: { file: File; categoryId: string }) =>
+            bulkUploadApi.uploadItems(file, categoryId),
+        onSuccess: (data) => {
+            setUploadResult(data);
+            setIsUploadModalOpen(true);
+            setUploadingCategoryId(null);
+            queryClient.invalidateQueries({ queryKey: ['reference-items'] });
+        },
+        onError: (error: Error) => {
+            setUploadResult({
+                success: false,
+                totalRows: 0,
+                successCount: 0,
+                errorCount: 1,
+                errors: [{
+                    row: 0,
+                    itemName: null,
+                    errorType: 'SYSTEM',
+                    field: null,
+                    message: error.message
+                }],
+                invalidStores: [],
+            });
+            setIsUploadModalOpen(true);
+            setUploadingCategoryId(null);
+        },
+    });
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, categoryId: string) => {
+        const file = e.target.files?.[0];
+        if (file && file.name.endsWith('.xlsx')) {
+            setUploadingCategoryId(categoryId);
+            uploadMutation.mutate({ file, categoryId });
+        } else if (file) {
+            alert('Please select an .xlsx file');
+        }
+        e.target.value = '';
+    };
 
     const openCreateModal = () => {
         setEditingCategory(null);
@@ -273,6 +318,26 @@ export function CategoriesPage() {
 
                                         {/* Actions - visible on hover */}
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {/* Upload button for subcategories (leaf nodes without children) */}
+                                            {!hasChildNodes && (
+                                                <label
+                                                    className="p-1 text-emerald-500 hover:text-emerald-600 rounded transition-colors cursor-pointer"
+                                                    title="Upload Items"
+                                                >
+                                                    {uploadingCategoryId === category.id ? (
+                                                        <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <Upload size={14} />
+                                                    )}
+                                                    <input
+                                                        type="file"
+                                                        accept=".xlsx"
+                                                        className="hidden"
+                                                        onChange={(e) => handleFileSelect(e, category.id)}
+                                                        disabled={uploadingCategoryId === category.id}
+                                                    />
+                                                </label>
+                                            )}
                                             <button
                                                 onClick={() => {
                                                     const action = category.active ? 'deactivate' : 'activate';
@@ -400,7 +465,7 @@ export function CategoriesPage() {
                                 )}
 
                                 {/* Footer - Add Subcategory */}
-                                <div className="px-4 py-3">
+                                <div className="px-4 py-3 border-t border-slate-100">
                                     <button
                                         onClick={() => {
                                             setFormData({
@@ -693,6 +758,80 @@ export function CategoriesPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Upload Result Modal */}
+            {isUploadModalOpen && uploadResult && (
+                <div className="modal-overlay" onClick={() => setIsUploadModalOpen(false)}>
+                    <div className="modal max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title flex items-center gap-2">
+                                {uploadResult.errorCount === 0 ? (
+                                    <><CheckCircle className="text-green-500" size={24} /> Upload Successful</>
+                                ) : (
+                                    <><AlertCircle className="text-red-500" size={24} /> Upload Failed</>
+                                )}
+                            </h2>
+                            <button className="modal-close" onClick={() => setIsUploadModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="modal-body space-y-4">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="bg-slate-50 rounded-lg p-3">
+                                    <div className="text-2xl font-bold text-slate-800">{uploadResult.totalRows}</div>
+                                    <div className="text-xs text-slate-500">Total Rows</div>
+                                </div>
+                                <div className="bg-green-50 rounded-lg p-3">
+                                    <div className="text-2xl font-bold text-green-600">{uploadResult.successCount}</div>
+                                    <div className="text-xs text-slate-500">Success</div>
+                                </div>
+                                <div className="bg-red-50 rounded-lg p-3">
+                                    <div className="text-2xl font-bold text-red-600">{uploadResult.errorCount}</div>
+                                    <div className="text-xs text-slate-500">Errors</div>
+                                </div>
+                            </div>
+
+                            {/* {uploadResult.invalidStores && uploadResult.invalidStores.length > 0 && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                    <h4 className="font-medium text-amber-800 mb-1">Invalid Stores</h4>
+                                    <p className="text-sm text-amber-700">
+                                        {uploadResult.invalidStores.join(', ')}
+                                    </p>
+                                </div>
+                            )} */}
+
+                            {uploadResult.errors && uploadResult.errors.length > 0 && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                    <h4 className="font-medium text-red-800 mb-2">Errors ({uploadResult.errors.length})</h4>
+                                    <div className="max-h-48 overflow-y-auto space-y-2">
+                                        {uploadResult.errors.map((error, idx) => (
+                                            <div key={idx} className="bg-white rounded border border-red-100 p-2 text-sm">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    {error.row > 0 && (
+                                                        <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">
+                                                            Row {error.row}
+                                                        </span>
+                                                    )}
+                                                    
+                                                </div>
+                                                <div className="text-red-700">
+                                                    {error.itemName && <span className="font-medium">{error.itemName}: </span>}
+                                                    {error.message}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-actions">
+                            <button className="btn btn-primary w-full" onClick={() => setIsUploadModalOpen(false)}>
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
