@@ -107,4 +107,37 @@
       transform: translateY(0);
     }
   }
+
+  /* Upload progress modal animations */
+  .animate-upload-float {
+    animation: uploadFloat 1.5s ease-in-out infinite;
+  }
+
+  @keyframes uploadFloat {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .animate-progress-pulse {
+    animation: progressPulse 2s ease-in-out infinite;
+    width: 100%;
+  }
+
+  @keyframes progressPulse {
+    0% {
+      opacity: 0.6;
+      transform: translateX(-100%);
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.6;
+      transform: translateX(100%);
+    }
+  }
 }

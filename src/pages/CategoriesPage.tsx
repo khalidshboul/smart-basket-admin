@@ -7,6 +7,7 @@ import { Plus, Pencil, Trash2, Folder, Smile, ImageIcon, ChevronRight, ChevronDo
 import EmojiPicker from 'emoji-picker-react';
 import type { EmojiClickData } from 'emoji-picker-react';
 import type { Category, CreateCategoryRequest } from '../types';
+import { UploadProgressModal, type UploadStatus } from '../components/UploadProgressModal';
 
 // Icon color classes for categories
 const iconColors = [
@@ -31,6 +32,11 @@ export function CategoriesPage() {
     const [uploadingCategoryId, setUploadingCategoryId] = useState<string | null>(null);
     const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    // Upload progress modal state
+    const [isUploadProgressOpen, setIsUploadProgressOpen] = useState(false);
+    const [uploadFileName, setUploadFileName] = useState('');
+    const [uploadFileSize, setUploadFileSize] = useState(0);
+    const [uploadStatus, setUploadStatus] = useState<UploadStatus>('uploading');
     const [formData, setFormData] = useState<CreateCategoryRequest>({
         name: '',
         nameAr: '',
@@ -89,35 +95,55 @@ export function CategoriesPage() {
         mutationFn: ({ file, categoryId }: { file: File; categoryId: string }) =>
             bulkUploadApi.uploadItems(file, categoryId),
         onSuccess: (data) => {
-            setUploadResult(data);
-            setIsUploadModalOpen(true);
-            setUploadingCategoryId(null);
-            queryClient.invalidateQueries({ queryKey: ['reference-items'] });
+            setUploadStatus('complete');
+            // Brief delay to show complete state before transitioning
+            setTimeout(() => {
+                setIsUploadProgressOpen(false);
+                setUploadResult(data);
+                setIsUploadModalOpen(true);
+                setUploadingCategoryId(null);
+                queryClient.invalidateQueries({ queryKey: ['reference-items'] });
+            }, 800);
         },
         onError: (error: Error) => {
-            setUploadResult({
-                success: false,
-                totalRows: 0,
-                successCount: 0,
-                errorCount: 1,
-                errors: [{
-                    row: 0,
-                    itemName: null,
-                    errorType: 'SYSTEM',
-                    field: null,
-                    message: error.message
-                }],
-                invalidStores: [],
-            });
-            setIsUploadModalOpen(true);
-            setUploadingCategoryId(null);
+            setUploadStatus('error');
+            setTimeout(() => {
+                setIsUploadProgressOpen(false);
+                setUploadResult({
+                    success: false,
+                    totalRows: 0,
+                    successCount: 0,
+                    errorCount: 1,
+                    errors: [{
+                        row: 0,
+                        itemName: null,
+                        errorType: 'SYSTEM',
+                        field: null,
+                        message: error.message
+                    }],
+                    invalidStores: [],
+                });
+                setIsUploadModalOpen(true);
+                setUploadingCategoryId(null);
+            }, 800);
         },
     });
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, categoryId: string) => {
         const file = e.target.files?.[0];
         if (file && file.name.endsWith('.xlsx')) {
+            // Set up upload progress modal state
+            setUploadFileName(file.name);
+            setUploadFileSize(file.size);
+            setUploadStatus('uploading');
+            setIsUploadProgressOpen(true);
             setUploadingCategoryId(categoryId);
+
+            // Simulate processing state after a brief upload phase
+            setTimeout(() => {
+                setUploadStatus('processing');
+            }, 1000);
+
             uploadMutation.mutate({ file, categoryId });
         } else if (file) {
             alert('Please select an .xlsx file');
@@ -762,6 +788,18 @@ export function CategoriesPage() {
                 </div>
             )}
 
+            {/* Upload Progress Modal */}
+            <UploadProgressModal
+                isOpen={isUploadProgressOpen}
+                fileName={uploadFileName}
+                fileSize={uploadFileSize}
+                status={uploadStatus}
+                onCancel={() => {
+                    setIsUploadProgressOpen(false);
+                    setUploadingCategoryId(null);
+                }}
+            />
+
             {/* Upload Result Modal */}
             {isUploadModalOpen && uploadResult && (
                 <div className="modal-overlay" onClick={() => setIsUploadModalOpen(false)}>
@@ -815,7 +853,7 @@ export function CategoriesPage() {
                                                             Row {error.row}
                                                         </span>
                                                     )}
-                                                    
+
                                                 </div>
                                                 <div className="text-red-700">
                                                     {error.itemName && <span className="font-medium">{error.itemName}: </span>}
