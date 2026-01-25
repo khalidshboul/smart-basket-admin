@@ -3,9 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { referenceItemApi } from '../api/referenceItemApi';
 import { storeApi } from '../api/storeApi';
 import { categoryApi } from '../api/categoryApi';
-import { bulkUploadApi } from '../api/bulkUploadApi';
-import type { BulkUploadResponse } from '../api/bulkUploadApi';
-import { Plus, Pencil, Trash2, Package, Search, ImageIcon, Link, Upload, FileSpreadsheet, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Search, ImageIcon, Link } from 'lucide-react';
 import type { ReferenceItem, CreateReferenceItemRequest, Store } from '../types';
 
 export function ItemsPage() {
@@ -17,9 +15,6 @@ export function ItemsPage() {
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [imageUrlInput, setImageUrlInput] = useState('');
-    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
     const [formData, setFormData] = useState<CreateReferenceItemRequest>({
         name: '',
         nameAr: '',
@@ -67,28 +62,6 @@ export function ItemsPage() {
         mutationFn: referenceItemApi.delete,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] }),
     });
-
-    const handleBulkUpload = async (file: File) => {
-        setIsUploading(true);
-        setUploadResult(null);
-        try {
-            const result = await bulkUploadApi.uploadItems(file);
-            setUploadResult(result);
-            queryClient.invalidateQueries({ queryKey: ['items'] });
-        } catch (error) {
-            console.error('Upload failed:', error);
-            setUploadResult({
-                totalSheets: 0,
-                totalRows: 0,
-                successCount: 0,
-                errorCount: 1,
-                sheetResults: [],
-                errors: [{ sheetName: '', rowNumber: 0, itemName: '', errorMessage: 'Upload failed. Please check the file format.' }],
-            });
-        } finally {
-            setIsUploading(false);
-        }
-    };
 
     const toggleMutation = useMutation({
         mutationFn: referenceItemApi.toggleStatus,
@@ -291,10 +264,6 @@ export function ItemsPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => { setIsUploadModalOpen(true); setUploadResult(null); }} className="btn btn-secondary flex items-center gap-2">
-                        <Upload size={20} />
-                        <span>Upload Excel</span>
-                    </button>
                     <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2">
                         <Plus size={20} />
                         <span>Add Item</span>
@@ -700,164 +669,6 @@ export function ItemsPage() {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Upload Modal */}
-            {isUploadModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsUploadModalOpen(false)}>
-                    <div className="modal max-w-xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2 className="modal-title flex items-center gap-2">
-                                <FileSpreadsheet size={24} />
-                                Bulk Upload Items
-                            </h2>
-                            <button className="modal-close" onClick={() => setIsUploadModalOpen(false)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            {!uploadResult ? (
-                                <>
-                                    <p className="text-slate-600 mb-4">
-                                        Upload an Excel file (.xlsx) with items. Each sheet represents a store with its specific prices.
-                                    </p>
-                                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-primary-500 transition-colors">
-                                        <input
-                                            type="file"
-                                            accept=".xlsx"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) handleBulkUpload(file);
-                                            }}
-                                            className="hidden"
-                                            id="excel-file-input"
-                                            disabled={isUploading}
-                                        />
-                                        <label
-                                            htmlFor="excel-file-input"
-                                            className={`cursor-pointer block ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        >
-                                            {isUploading ? (
-                                                <>
-                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-                                                    <p className="text-slate-600">Uploading and processing...</p>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Upload size={48} className="mx-auto text-slate-400 mb-4" />
-                                                    <p className="text-slate-600 mb-2">
-                                                        Click to select an Excel file
-                                                    </p>
-                                                    <p className="text-sm text-slate-400">
-                                                        or drag and drop here
-                                                    </p>
-                                                </>
-                                            )}
-                                        </label>
-                                    </div>
-                                    <div className="mt-4 p-4 bg-slate-50 rounded-lg text-sm">
-                                        <div className="font-semibold text-slate-700 mb-2">📋 Excel Format</div>
-                                        <div className="text-slate-600 mb-2">
-                                            <strong>Sheet Name</strong> = Store Name (must match existing store)
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                                            <div className="font-medium text-slate-700">Required Columns:</div>
-                                            <div className="font-medium text-slate-700">Optional Columns:</div>
-                                            <div className="text-red-600">• name <span className="text-slate-400">(Item name EN)</span></div>
-                                            <div className="text-slate-500">• nameAr <span className="text-slate-400">(Item name AR)</span></div>
-                                            <div className="text-red-600">• category <span className="text-slate-400">(Path: Parent.Child.Sub)</span></div>
-                                            <div className="text-slate-500">• originalPrice</div>
-                                            <div></div>
-                                            <div className="text-slate-500">• discountPrice</div>
-                                            <div></div>
-                                            <div className="text-slate-500">• description, descriptionAr</div>
-                                            <div></div>
-                                            <div className="text-slate-500">• image1, image2, image3</div>
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="space-y-4">
-                                    {/* Summary */}
-                                    <div className="grid grid-cols-3 gap-4 text-center">
-                                        <div className="p-4 bg-slate-100 rounded-lg">
-                                            <div className="text-2xl font-bold text-slate-700">{uploadResult.totalRows}</div>
-                                            <div className="text-sm text-slate-500">Total Rows</div>
-                                        </div>
-                                        <div className="p-4 bg-green-100 rounded-lg">
-                                            <div className="text-2xl font-bold text-green-700 flex items-center justify-center gap-1">
-                                                <CheckCircle size={20} />
-                                                {uploadResult.successCount}
-                                            </div>
-                                            <div className="text-sm text-green-600">Success</div>
-                                        </div>
-                                        <div className="p-4 bg-red-100 rounded-lg">
-                                            <div className="text-2xl font-bold text-red-700 flex items-center justify-center gap-1">
-                                                <XCircle size={20} />
-                                                {uploadResult.errorCount}
-                                            </div>
-                                            <div className="text-sm text-red-600">Errors</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Sheet Results */}
-                                    {uploadResult.sheetResults.length > 0 && (
-                                        <div>
-                                            <h4 className="font-semibold text-slate-700 mb-2">Sheet Results</h4>
-                                            <div className="space-y-2">
-                                                {uploadResult.sheetResults.map((sheet, i) => (
-                                                    <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                                                        <span className="font-medium">{sheet.sheetName}</span>
-                                                        <span className="text-sm text-slate-500">
-                                                            {sheet.storeName && <span className="text-primary-600 mr-2">→ {sheet.storeName}</span>}
-                                                            <span className="text-green-600">{sheet.successCount} ✓</span>
-                                                            {sheet.errorCount > 0 && (
-                                                                <span className="text-red-600 ml-2">{sheet.errorCount} ✗</span>
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Errors List */}
-                                    {uploadResult.errors.length > 0 && (
-                                        <div>
-                                            <h4 className="font-semibold text-red-700 mb-2">Errors</h4>
-                                            <div className="max-h-40 overflow-y-auto space-y-1">
-                                                {uploadResult.errors.map((error, i) => (
-                                                    <div key={i} className="text-sm p-2 bg-red-50 rounded border border-red-100">
-                                                        {error.sheetName && <span className="font-medium">[{error.sheetName}]</span>}
-                                                        {error.rowNumber > 0 && <span className="text-red-600"> Row {error.rowNumber}</span>}
-                                                        {error.itemName && <span className="text-slate-600"> - {error.itemName}</span>}
-                                                        <div className="text-red-700">{error.errorMessage}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                        <div className="modal-actions">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => setIsUploadModalOpen(false)}
-                            >
-                                {uploadResult ? 'Close' : 'Cancel'}
-                            </button>
-                            {uploadResult && (
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => setUploadResult(null)}
-                                >
-                                    Upload Another
-                                </button>
-                            )}
-                        </div>
                     </div>
                 </div>
             )}
