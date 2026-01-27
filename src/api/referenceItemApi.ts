@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { ReferenceItem, CreateReferenceItemRequest } from '../types';
+import type { ReferenceItem, CreateReferenceItemRequest, BarcodeSearchResponse } from '../types';
 
 const BASE_PATH = 'items';
 
@@ -45,5 +45,20 @@ export const referenceItemApi = {
 
     delete: async (id: string): Promise<void> => {
         await apiClient.delete(`${BASE_PATH}/${id}`);
+    },
+
+    /**
+     * Search for a reference item by barcode.
+     * Returns both the item and all store prices in a single response.
+     */
+    searchByBarcode: async (barcode: string): Promise<BarcodeSearchResponse | null> => {
+        try {
+            const response = await apiClient.get<BarcodeSearchResponse>(
+                `${BASE_PATH}/barcode/${encodeURIComponent(barcode)}`
+            );
+            return response.data;
+        } catch {
+            return null; // Return null if not found (404)
+        }
     },
 };

@@ -7,6 +7,7 @@ import { ItemsPage } from './pages/ItemsPage';
 import { StoresPage } from './pages/StoresPage';
 import { PricesPage } from './pages/PricesPage';
 import { PreviewPage } from './pages/PreviewPage';
+import { BarcodeSearchPage } from './pages/BarcodeSearchPage';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -29,6 +30,7 @@ function App() {
             <Route path="/items" element={<ItemsPage />} />
             <Route path="/stores" element={<StoresPage />} />
             <Route path="/prices" element={<PricesPage />} />
+            <Route path="/barcode-search" element={<BarcodeSearchPage />} />
             <Route path="/preview" element={<PreviewPage />} />
           </Routes>
         </Layout>
@@ -38,4 +40,3 @@ function App() {
 }
 
 export default App;
-

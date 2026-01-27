@@ -55,3 +55,4 @@ export const storeItemApi = {
         await apiClient.delete(`${BASE_PATH}/${id}`);
     },
 };
+

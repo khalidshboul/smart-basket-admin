@@ -22,6 +22,7 @@ export function ItemsPage() {
         description: '',
         descriptionAr: '',
         images: [],
+        barcode: '',
         availableInAllStores: true,
         specificStoreIds: [],
     });
@@ -161,6 +162,7 @@ export function ItemsPage() {
             description: '',
             descriptionAr: '',
             images: [],
+            barcode: '',
             availableInAllStores: true,
             specificStoreIds: [],
         });
@@ -176,6 +178,7 @@ export function ItemsPage() {
             description: item.description || '',
             descriptionAr: item.descriptionAr || '',
             images: item.images || [],
+            barcode: item.barcode || '',
             availableInAllStores: item.availableInAllStores ?? true,
             specificStoreIds: item.specificStoreIds || [],
         });
@@ -558,6 +561,20 @@ export function ItemsPage() {
                                         onChange={(e) => setFormData({ ...formData, descriptionAr: e.target.value })}
                                         placeholder="الوصف بالعربية"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="form-label">Barcode</label>
+                                    <input
+                                        type="text"
+                                        className="form-input font-mono"
+                                        value={formData.barcode || ''}
+                                        onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                                        placeholder="e.g., 6291003081024"
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        Enter the product's barcode (EAN-13, UPC-A, etc.)
+                                    </p>
                                 </div>
 
                                 {/* Images */}

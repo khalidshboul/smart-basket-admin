@@ -40,6 +40,7 @@ export interface ReferenceItem {
     description: string;
     descriptionAr: string | null;
     images: string[];
+    barcode: string | null;
     availableInAllStores: boolean;
     specificStoreIds: string[];
     active: boolean;
@@ -52,8 +53,18 @@ export interface CreateReferenceItemRequest {
     description?: string;
     descriptionAr?: string;
     images?: string[];
+    barcode?: string;
     availableInAllStores?: boolean;
     specificStoreIds?: string[];
+}
+
+// Combined response for barcode search - returns item + all store prices
+export interface BarcodeSearchResponse {
+    item: ReferenceItem;
+    storePrices: StoreItem[];
+    storeCount: number;
+    lowestPrice: number | null;
+    cheapestStoreName: string | null;
 }
 
 // ============ Store Types ============

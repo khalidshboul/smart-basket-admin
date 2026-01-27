@@ -9,7 +9,8 @@ import {
     DollarSign,
     Eye,
     Menu,
-    X
+    X,
+    ScanBarcode
 } from 'lucide-react';
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
     { to: '/items', icon: Package, label: 'Items' },
     { to: '/stores', icon: Store, label: 'Stores' },
     { to: '/prices', icon: DollarSign, label: 'Prices' },
+    { to: '/barcode-search', icon: ScanBarcode, label: 'Barcode Search' },
     { to: '/preview', icon: Eye, label: 'Preview' },
 ];
 
