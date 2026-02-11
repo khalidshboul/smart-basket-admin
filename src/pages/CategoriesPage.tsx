@@ -8,6 +8,7 @@ import EmojiPicker from 'emoji-picker-react';
 import type { EmojiClickData } from 'emoji-picker-react';
 import type { Category, CreateCategoryRequest } from '../types';
 import { UploadProgressModal, type UploadStatus } from '../components/UploadProgressModal';
+import { ConfirmUploadDialog } from '../components/ConfirmUploadDialog';
 
 // Icon color classes for categories
 const iconColors = [
@@ -37,6 +38,11 @@ export function CategoriesPage() {
     const [uploadFileName, setUploadFileName] = useState('');
     const [uploadFileSize, setUploadFileSize] = useState(0);
     const [uploadStatus, setUploadStatus] = useState<UploadStatus>('uploading');
+    const [pendingUpload, setPendingUpload] = useState<{
+        file: File;
+        categoryId: string;
+        categoryName: string;
+    } | null>(null);
     const [formData, setFormData] = useState<CreateCategoryRequest>({
         name: '',
         nameAr: '',
@@ -129,26 +135,40 @@ export function CategoriesPage() {
         },
     });
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, categoryId: string) => {
+    const handleFileSelect = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        categoryId: string,
+        categoryName: string
+    ) => {
         const file = e.target.files?.[0];
         if (file && file.name.endsWith('.xlsx')) {
-            // Set up upload progress modal state
-            setUploadFileName(file.name);
-            setUploadFileSize(file.size);
-            setUploadStatus('uploading');
-            setIsUploadProgressOpen(true);
-            setUploadingCategoryId(categoryId);
-
-            // Simulate processing state after a brief upload phase
-            setTimeout(() => {
-                setUploadStatus('processing');
-            }, 1000);
-
-            uploadMutation.mutate({ file, categoryId });
+            setPendingUpload({ file, categoryId, categoryName });
         } else if (file) {
             alert('Please select an .xlsx file');
         }
         e.target.value = '';
+    };
+
+    const handleConfirmUpload = () => {
+        if (!pendingUpload) return;
+        const { file, categoryId } = pendingUpload;
+
+        setUploadFileName(file.name);
+        setUploadFileSize(file.size);
+        setUploadStatus('uploading');
+        setIsUploadProgressOpen(true);
+        setUploadingCategoryId(categoryId);
+
+        setTimeout(() => {
+            setUploadStatus('processing');
+        }, 1000);
+
+        uploadMutation.mutate({ file, categoryId });
+        setPendingUpload(null);
+    };
+
+    const handleCancelUpload = () => {
+        setPendingUpload(null);
     };
 
     const openCreateModal = () => {
@@ -359,7 +379,7 @@ export function CategoriesPage() {
                                                         type="file"
                                                         accept=".xlsx"
                                                         className="hidden"
-                                                        onChange={(e) => handleFileSelect(e, category.id)}
+                                                        onChange={(e) => handleFileSelect(e, category.id, category.name)}
                                                         disabled={uploadingCategoryId === category.id}
                                                     />
                                                 </label>
@@ -537,6 +557,15 @@ export function CategoriesPage() {
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl -ml-20 -mb-20"></div>
             </div>
+
+            <ConfirmUploadDialog
+                isOpen={pendingUpload !== null}
+                fileName={pendingUpload?.file.name || ''}
+                fileSize={pendingUpload?.file.size || 0}
+                categoryName={pendingUpload?.categoryName || ''}
+                onConfirm={handleConfirmUpload}
+                onCancel={handleCancelUpload}
+            />
 
             {/* Modal */}
             {isModalOpen && (
