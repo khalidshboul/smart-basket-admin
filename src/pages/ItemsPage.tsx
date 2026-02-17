@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { referenceItemApi } from '../api/referenceItemApi';
 import { storeApi } from '../api/storeApi';
@@ -8,6 +9,7 @@ import type { ReferenceItem, CreateReferenceItemRequest, Store } from '../types'
 
 export function ItemsPage() {
     const queryClient = useQueryClient();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<ReferenceItem | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -40,6 +42,14 @@ export function ItemsPage() {
         queryKey: ['categories', 'active'],
         queryFn: categoryApi.getActive,
     });
+
+    useEffect(() => {
+        const categoryId = searchParams.get('categoryId');
+        if (categoryId) {
+            setFilterCategory(categoryId);
+            setShowFilterDropdown(false);
+        }
+    }, [searchParams]);
 
     const createMutation = useMutation({
         mutationFn: referenceItemApi.create,
@@ -301,7 +311,15 @@ export function ItemsPage() {
                     {showFilterDropdown && (
                         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                             <div
-                                onClick={() => { setFilterCategory(''); setShowFilterDropdown(false); }}
+                                onClick={() => {
+                                    setFilterCategory('');
+                                    setShowFilterDropdown(false);
+                                    setSearchParams(prev => {
+                                        const next = new URLSearchParams(prev);
+                                        next.delete('categoryId');
+                                        return next;
+                                    });
+                                }}
                                 className="flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer text-slate-500 border-b border-slate-100"
                             >
                                 All Categories
@@ -314,7 +332,15 @@ export function ItemsPage() {
                                     <div key={cat.id}>
                                         {showDivider && <div className="border-t border-slate-200 my-1" />}
                                         <div
-                                            onClick={() => { setFilterCategory(cat.id); setShowFilterDropdown(false); }}
+                                            onClick={() => {
+                                                setFilterCategory(cat.id);
+                                                setShowFilterDropdown(false);
+                                                setSearchParams(prev => {
+                                                    const next = new URLSearchParams(prev);
+                                                    next.set('categoryId', cat.id);
+                                                    return next;
+                                                });
+                                            }}
                                             className={`flex items-center gap-2 p-2 hover:bg-slate-100 cursor-pointer 
                                                 ${filterCategory === cat.id ? 'bg-primary-50' : ''} 
                                                 ${isParent ? 'bg-slate-50' : 'pl-8'}`}
