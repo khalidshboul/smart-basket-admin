@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoryApi } from '../api/categoryApi';
 import { bulkUploadApi } from '../api/bulkUploadApi';
 import type { BulkUploadResponse } from '../api/bulkUploadApi';
-import { Plus, Pencil, Trash2, Folder, Smile, ImageIcon, ChevronRight, ChevronDown, Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Folder, Smile, ImageIcon, ChevronRight, ChevronDown, Upload, X, CheckCircle, AlertCircle, Package } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import EmojiPicker from 'emoji-picker-react';
 import type { EmojiClickData } from 'emoji-picker-react';
 import type { Category, CreateCategoryRequest } from '../types';
@@ -24,6 +25,7 @@ const iconColors = [
 
 export function CategoriesPage() {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -364,6 +366,13 @@ export function CategoriesPage() {
 
                                         {/* Actions - visible on hover */}
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => navigate(`/items?categoryId=${category.id}`)}
+                                                className="p-1 text-slate-400 hover:text-[#2563eb] hover:bg-[#dbeafe] rounded transition-colors"
+                                                title="View Items"
+                                            >
+                                                <Package size={14} />
+                                            </button>
                                             {/* Upload button for subcategories (leaf nodes without children) */}
                                             {!hasChildNodes && (
                                                 <label
@@ -401,7 +410,7 @@ export function CategoriesPage() {
                                             </button>
                                             <button
                                                 onClick={() => openEditModal(category)}
-                                                className="p-1 text-slate-400 hover:text-primary-600 rounded transition-colors"
+                                                className="p-1 text-slate-400 hover:text-[#16a34a] hover:bg-[#dcfce7] rounded transition-colors"
                                                 title="Edit"
                                             >
                                                 <Pencil size={14} />
@@ -470,6 +479,13 @@ export function CategoriesPage() {
                                     {/* Actions - stop propagation to prevent expand/collapse */}
                                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                         <button
+                                            onClick={() => navigate(`/items?categoryId=${parent.id}`)}
+                                            className="p-2 text-slate-400 hover:text-[#2563eb] hover:bg-[#dbeafe] rounded-lg transition-all"
+                                            title="View Items"
+                                        >
+                                            <Package size={18} />
+                                        </button>
+                                        <button
                                             onClick={() => {
                                                 const action = parent.active ? 'deactivate' : 'activate';
                                                 if (confirm(`Are you sure you want to ${action} "${parent.name}"?`)) {
@@ -485,7 +501,7 @@ export function CategoriesPage() {
                                         </button>
                                         <button
                                             onClick={() => openEditModal(parent)}
-                                            className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                                            className="p-2 text-slate-400 hover:text-[#16a34a] hover:bg-[#dcfce7] rounded-lg transition-all"
                                             title="Edit"
                                         >
                                             <Pencil size={18} />
