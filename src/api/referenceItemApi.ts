@@ -3,9 +3,33 @@ import type { ReferenceItem, CreateReferenceItemRequest } from '../types';
 
 const BASE_PATH = 'items';
 
+export interface PaginatedResponse<T> {
+    content: T[];
+    totalElements: number;
+    totalPages: number;
+    number: number;  // current page (0-indexed)
+    size: number;
+    first: boolean;
+    last: boolean;
+}
+
 export const referenceItemApi = {
+    /**
+     * Get all items without pagination (used by PricesPage, PreviewPage, etc.).
+     */
     getAll: async (): Promise<ReferenceItem[]> => {
         const response = await apiClient.get<ReferenceItem[]>(BASE_PATH);
+        return response.data;
+    },
+
+    /**
+     * Get items with pagination.
+     */
+    getAllPaginated: async (page: number = 0, size: number = 20): Promise<PaginatedResponse<ReferenceItem>> => {
+        console.log(`[API Call] TESSST getAllPaginated - page: ${page}, size: ${size}`);
+        const response = await apiClient.get<PaginatedResponse<ReferenceItem>>(BASE_PATH, {
+            params: { page, size, paginate: true },
+        });
         return response.data;
     },
 

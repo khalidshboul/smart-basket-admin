@@ -6,9 +6,9 @@ import { FolderOpen, Package, Store, DollarSign, ArrowRight } from 'lucide-react
 import { Link } from 'react-router-dom';
 
 export function Dashboard() {
-    const { data: items = [] } = useQuery({
-        queryKey: ['items'],
-        queryFn: referenceItemApi.getAll,
+    const { data: itemsData } = useQuery({
+        queryKey: ['items', 'count'],
+        queryFn: () => referenceItemApi.getAllPaginated(0, 1),
     });
 
     const { data: stores = [] } = useQuery({
@@ -22,10 +22,11 @@ export function Dashboard() {
     });
 
     const activeStores = stores.filter(s => s.active).length;
+    const itemCount = itemsData?.totalElements ?? 0;
 
     const stats = [
         { icon: FolderOpen, label: 'Categories', value: categories.length, color: 'bg-blue-100 text-blue-600', link: '/categories' },
-        { icon: Package, label: 'Items', value: items.length, color: 'bg-green-100 text-green-600', link: '/items' },
+        { icon: Package, label: 'Items', value: itemCount, color: 'bg-green-100 text-green-600', link: '/items' },
         { icon: Store, label: 'Active Stores', value: activeStores, color: 'bg-purple-100 text-purple-600', link: '/stores' },
         { icon: DollarSign, label: 'Total Stores', value: stores.length, color: 'bg-amber-100 text-amber-600', link: '/stores' },
     ];

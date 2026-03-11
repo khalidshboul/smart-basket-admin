@@ -4,8 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { referenceItemApi } from '../api/referenceItemApi';
 import { storeApi } from '../api/storeApi';
 import { categoryApi } from '../api/categoryApi';
-import { Plus, Pencil, Trash2, Package, Search, ImageIcon, Link } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Search, ImageIcon, Link, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ReferenceItem, CreateReferenceItemRequest, Store } from '../types';
+
+const PAGE_SIZE = 20;
 
 export function ItemsPage() {
     const queryClient = useQueryClient();
@@ -14,6 +16,7 @@ export function ItemsPage() {
     const [editingItem, setEditingItem] = useState<ReferenceItem | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
+    const [currentPage, setCurrentPage] = useState(0);
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [imageUrlInput, setImageUrlInput] = useState('');
@@ -28,10 +31,16 @@ export function ItemsPage() {
         specificStoreIds: [],
     });
 
-    const { data: items = [], isLoading } = useQuery({
-        queryKey: ['items'],
-        queryFn: referenceItemApi.getAll,
+    const { data: paginatedData, isLoading } = useQuery({
+        queryKey: ['items', currentPage],
+        queryFn: () => {
+            return referenceItemApi.getAllPaginated(currentPage, PAGE_SIZE);
+        },
     });
+
+    const items = paginatedData ? (Array.isArray(paginatedData) ? paginatedData : (paginatedData.content ?? [])) : [];
+    const totalPages = (paginatedData as any)?.totalPages ?? 0;
+    const totalElements = (paginatedData as any)?.totalElements ?? (Array.isArray(paginatedData) ? paginatedData.length : 0);
 
     const { data: stores = [] } = useQuery({
         queryKey: ['stores'],
@@ -369,104 +378,134 @@ export function ItemsPage() {
                 <div className="card text-center py-12">
                     <Package size={48} className="mx-auto text-slate-300 mb-4" />
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">
-                        {items.length === 0 ? 'No items yet' : 'No items match your search'}
+                        {totalElements === 0 ? 'No items yet' : 'No items match your search'}
                     </h3>
                     <p className="text-slate-500 mb-4">
-                        {items.length === 0 ? 'Create your first reference item.' : 'Try adjusting your filters.'}
+                        {totalElements === 0 ? 'Create your first reference item.' : 'Try adjusting your filters.'}
                     </p>
-                    {items.length === 0 && (
+                    {totalElements === 0 && (
                         <button onClick={openCreateModal} className="btn btn-primary">Create Item</button>
                     )}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredItems.map((item) => (
-                        <div key={item.id} className="card group hover:shadow-md transition-all duration-200">
-                            {/* Image placeholder */}
-                            <div className="w-full h-32 bg-slate-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden">
-                                {item.images && item.images.length > 0 ? (
-                                    <img
-                                        src={item.images[0]}
-                                        alt={item.name}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = 'none';
-                                        }}
-                                    />
-                                ) : (
-                                    <Package size={40} className="text-slate-300" />
-                                )}
-                            </div>
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredItems.map((item) => (
+                            <div key={item.id} className="card group hover:shadow-md transition-all duration-200">
+                                {/* Image placeholder */}
+                                <div className="w-full h-32 bg-slate-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden">
+                                    {item.images && item.images.length > 0 ? (
+                                        <img
+                                            src={item.images[0]}
+                                            alt={item.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                            }}
+                                        />
+                                    ) : (
+                                        <Package size={40} className="text-slate-300" />
+                                    )}
+                                </div>
 
-                            {/* Info */}
-                            <div className="space-y-2">
-                                <div className="flex items-start justify-between">
-                                    <h3 className="font-bold text-slate-800">{item.name}</h3>
-                                    <div className="flex items-center gap-1">
-                                        {item.images && item.images.length > 1 && (
-                                            <span className="badge badge-info flex items-center gap-1">
-                                                <ImageIcon size={12} />
-                                                {item.images.length}
-                                            </span>
-                                        )}
-                                        {item.active ? (
-                                            <span className="badge badge-success">Active</span>
+                                {/* Info */}
+                                <div className="space-y-2">
+                                    <div className="flex items-start justify-between">
+                                        <h3 className="font-bold text-slate-800">{item.name}</h3>
+                                        <div className="flex items-center gap-1">
+                                            {item.images && item.images.length > 1 && (
+                                                <span className="badge badge-info flex items-center gap-1">
+                                                    <ImageIcon size={12} />
+                                                    {item.images.length}
+                                                </span>
+                                            )}
+                                            {item.active ? (
+                                                <span className="badge badge-success">Active</span>
+                                            ) : (
+                                                <span className="badge badge-danger">Inactive</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="badge badge-info">{item.category}</span>
+                                    <p className="text-sm text-slate-500 line-clamp-2">
+                                        {item.description || 'No description'}
+                                    </p>
+
+                                    {/* Availability */}
+                                    <div className="flex items-center gap-2 text-xs">
+                                        {item.availableInAllStores ? (
+                                            <span className="text-green-600">✓ All stores</span>
                                         ) : (
-                                            <span className="badge badge-danger">Inactive</span>
+                                            <span className="text-amber-600">
+                                                {item.specificStoreIds?.length || 0} specific stores
+                                            </span>
                                         )}
                                     </div>
                                 </div>
-                                <span className="badge badge-info">{item.category}</span>
-                                <p className="text-sm text-slate-500 line-clamp-2">
-                                    {item.description || 'No description'}
-                                </p>
 
-                                {/* Availability */}
-                                <div className="flex items-center gap-2 text-xs">
-                                    {item.availableInAllStores ? (
-                                        <span className="text-green-600">✓ All stores</span>
-                                    ) : (
-                                        <span className="text-amber-600">
-                                            {item.specificStoreIds?.length || 0} specific stores
-                                        </span>
-                                    )}
+                                {/* Actions */}
+                                <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+                                    <button
+                                        onClick={() => {
+                                            const action = item.active ? 'deactivate' : 'activate';
+                                            const confirmed = window.confirm(`Are you sure you want to ${action} "${item.name}"?`);
+                                            if (confirmed) {
+                                                toggleMutation.mutate(item.id);
+                                            }
+                                        }}
+                                        disabled={toggleMutation.isPending}
+                                        className={`btn btn-sm flex-1 ${item.active
+                                            ? 'btn-secondary'
+                                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                            } ${toggleMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        {toggleMutation.isPending ? 'Processing...' : (item.active ? 'Deactivate' : 'Activate')}
+                                    </button>
+                                    <button
+                                        onClick={() => openEditModal(item)}
+                                        className="btn btn-secondary btn-sm"
+                                    >
+                                        <Pencil size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(item.id)}
+                                        className="btn btn-danger btn-sm"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
                                 </div>
                             </div>
+                        ))}
+                    </div>
 
-                            {/* Actions */}
-                            <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between mt-6">
+                            <p className="text-sm text-slate-500">
+                                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements} items
+                            </p>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => {
-                                        const action = item.active ? 'deactivate' : 'activate';
-                                        const confirmed = window.confirm(`Are you sure you want to ${action} "${item.name}"?`);
-                                        if (confirmed) {
-                                            toggleMutation.mutate(item.id);
-                                        }
-                                    }}
-                                    disabled={toggleMutation.isPending}
-                                    className={`btn btn-sm flex-1 ${item.active
-                                        ? 'btn-secondary'
-                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        } ${toggleMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                                    disabled={currentPage === 0}
+                                    className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
                                 >
-                                    {toggleMutation.isPending ? 'Processing...' : (item.active ? 'Deactivate' : 'Activate')}
+                                    <ChevronLeft size={16} /> Prev
                                 </button>
+                                <span className="text-sm text-slate-600 px-2">
+                                    Page {currentPage + 1} of {totalPages}
+                                </span>
                                 <button
-                                    onClick={() => openEditModal(item)}
-                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                                    disabled={currentPage >= totalPages - 1}
+                                    className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
                                 >
-                                    <Pencil size={14} />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(item.id)}
-                                    className="btn btn-danger btn-sm"
-                                >
-                                    <Trash2 size={14} />
+                                    Next <ChevronRight size={16} />
                                 </button>
                             </div>
                         </div>
-                    ))}
-                </div>
+                    )}
+                </>
             )}
 
             {/* Modal */}
