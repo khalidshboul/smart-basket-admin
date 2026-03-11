@@ -6,7 +6,7 @@ import { storeItemApi } from '../api/storeItemApi';
 import { priceApi } from '../api/priceApi';
 import { categoryApi } from '../api/categoryApi';
 import { Search, ChevronDown, Package, Save, X, AlertTriangle } from 'lucide-react';
-import type { StoreItem } from '../types';
+import type { StoreItem, ReferenceItem } from '../types';
 
 interface PendingChange {
     storeItemId: string;
@@ -16,6 +16,7 @@ interface PendingChange {
 
 interface PendingNewItem {
     referenceItemId: string;
+    itemName: string;
     storeId: string;
     price: number;
     originalPrice: number | null;
@@ -29,11 +30,22 @@ export function PricesPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(0);
+    const PAGE_SIZE = 25;
 
-    const { data: items = [], isLoading: itemsLoading } = useQuery({
-        queryKey: ['items'],
-        queryFn: referenceItemApi.getAll,
+    const { data: paginatedData, isLoading: itemsLoading } = useQuery({
+        queryKey: ['items', currentPage, searchQuery, filterCategory],
+        queryFn: () => referenceItemApi.getAllPaginated(
+            currentPage,
+            PAGE_SIZE,
+            searchQuery.trim() || undefined,
+            filterCategory || undefined
+        ),
     });
+
+    const items = paginatedData?.content ?? [];
+    const totalPages = paginatedData?.totalPages ?? 0;
+    const totalElements = paginatedData?.totalElements ?? 0;
 
     const { data: stores = [] } = useQuery({
         queryKey: ['stores', 'active'],
@@ -61,12 +73,19 @@ export function PricesPage() {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['storeItems'] }),
     });
 
-    // Filter items
-    const filteredItems = items.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = !filterCategory || item.categoryId === filterCategory;
-        return matchesSearch && matchesCategory;
-    });
+    // Search and Category filtering are now handled by the backend.
+    // We just reset the page to 0 when filters change.
+    const handleSearchChange = (val: string) => {
+        setSearchQuery(val);
+        setCurrentPage(0);
+    };
+
+    const handleCategoryChange = (val: string) => {
+        setFilterCategory(val);
+        setCurrentPage(0);
+    };
+
+    const filteredItems = items;
 
     const toggleExpand = (id: string) => {
         setExpandedItems(prev => {
@@ -112,7 +131,13 @@ export function PricesPage() {
                 next[idx] = { ...next[idx], [field]: field === 'originalPrice' && value === '' ? null : numValue };
                 return next;
             }
-            return [...prev, { referenceItemId: refItemId, storeId, price: field === 'price' ? numValue : 0, originalPrice: field === 'originalPrice' ? numValue : null }];
+            return [...prev, {
+                referenceItemId: refItemId,
+                itemName: items.find(i => i.id === refItemId)?.name || '',
+                storeId,
+                price: field === 'price' ? numValue : 0,
+                originalPrice: field === 'originalPrice' ? numValue : null
+            }];
         });
     };
 
@@ -154,7 +179,7 @@ export function PricesPage() {
                 await createMutation.mutateAsync({
                     referenceItemId: newItem.referenceItemId,
                     storeId: newItem.storeId,
-                    name: items.find(i => i.id === newItem.referenceItemId)?.name || '',
+                    name: newItem.itemName,
                     initialPrice: newItem.price,
                     originalPrice: newItem.originalPrice ?? undefined,
                 });
@@ -212,13 +237,13 @@ export function PricesPage() {
                         type="text"
                         placeholder="Search items..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => handleSearchChange(e.target.value)}
                         className="form-input pl-10"
                     />
                 </div>
                 <select
                     value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
                     className="form-input w-full sm:w-48"
                 >
                     <option value="">All Categories</option>
@@ -230,7 +255,7 @@ export function PricesPage() {
 
             {/* Items Accordion */}
             <div className="space-y-2">
-                {filteredItems.map(item => {
+                {filteredItems.map((item: ReferenceItem) => {
                     const isExpanded = expandedItems.has(item.id);
                     return (
                         <div key={item.id} className="card p-0 overflow-hidden">
@@ -329,7 +354,67 @@ export function PricesPage() {
                         </div>
                     );
                 })}
+
+                {filteredItems.length === 0 && !itemsLoading && (
+                    <div className="card p-12 text-center">
+                        <Package size={48} className="mx-auto text-slate-200 mb-4" />
+                        <h3 className="text-lg font-semibold text-slate-800">No items found</h3>
+                        <p className="text-slate-500">Try adjusting your search or category filter.</p>
+                    </div>
+                )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between bg-white px-4 py-3 sm:px-6 rounded-xl shadow-sm border border-slate-200">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                            disabled={currentPage === 0}
+                            className="btn btn-secondary btn-sm"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                            disabled={currentPage === totalPages - 1}
+                            className="btn btn-secondary btn-sm"
+                        >
+                            Next
+                        </button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm text-slate-700">
+                                Showing <span className="font-medium">{currentPage * PAGE_SIZE + 1}</span> to{' '}
+                                <span className="font-medium">
+                                    {Math.min((currentPage + 1) * PAGE_SIZE, totalElements)}
+                                </span> of{' '}
+                                <span className="font-medium">{totalElements}</span> results
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                                disabled={currentPage === 0}
+                                className={`btn btn-secondary btn-sm ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                Previous
+                            </button>
+                            <div className="flex items-center px-4 text-sm font-medium text-slate-700">
+                                Page {currentPage + 1} of {totalPages}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                                disabled={currentPage === totalPages - 1}
+                                className={`btn btn-secondary btn-sm ${currentPage === totalPages - 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Floating Action Bar */}
             {hasChanges && (
