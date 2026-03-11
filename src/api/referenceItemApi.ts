@@ -25,10 +25,10 @@ export const referenceItemApi = {
     /**
      * Get items with pagination.
      */
-    getAllPaginated: async (page: number = 0, size: number = 20): Promise<PaginatedResponse<ReferenceItem>> => {
-        console.log(`[API Call] TESSST getAllPaginated - page: ${page}, size: ${size}`);
+    getAllPaginated: async (page: number = 0, size: number = 20, query?: string, categoryId?: string): Promise<PaginatedResponse<ReferenceItem>> => {
+        console.log(`[API Call] TESSST getAllPaginated - page: ${page}, size: ${size}, query: ${query}, categoryId: ${categoryId}`);
         const response = await apiClient.get<PaginatedResponse<ReferenceItem>>(BASE_PATH, {
-            params: { page, size, paginate: true },
+            params: { page, size, paginate: true, query, categoryId },
         });
         return response.data;
     },
